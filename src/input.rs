@@ -1,36 +1,46 @@
 //! Keyboard to joypad and analog stick, with key release events.
 //!
-//! `Layout::Handheld`, for GB, GBC and GBA. The left hand fits WASD plus Q/E, the right hand
-//! fits J/K plus U/I, and the arrow keys pair with Z/X for players who prefer them:
+//! Two key schemes, picked with `TERMCART_KEYS=wasd|lol` (default `wasd`).
 //!
-//! | Button | Keys                   |
-//! |--------|------------------------|
-//! | D-pad  | arrows, W A S D        |
-//! | A      | X, K                   |
-//! | B      | Z, J                   |
-//! | L      | Q, U                   |
-//! | R      | E, I                   |
-//! | Start  | Enter                  |
-//! | Select | Backspace, Right Shift |
+//! `wasd`: the left hand moves, the right hand presses buttons.
 //!
-//! `Layout::N64`, for ParaLLEl N64 with `parallel-n64-alt-map = enabled`, where every N64
-//! button is its own RetroPad button:
+//! | Button        | Handheld (GB, GBC, GBA) | N64                       |
+//! |---------------|-------------------------|---------------------------|
+//! | Move          | W A S D, arrows         | W A S D (stick)           |
+//! | Walk          |                         | Left Shift (held)         |
+//! | A             | K                       | K                         |
+//! | B             | J                       | J                         |
+//! | L             | U                       | U                         |
+//! | R             | I                       | I                         |
+//! | Z             |                         | Space                     |
+//! | C buttons     |                         | arrows                    |
+//! | Start         | Enter, L                | Enter, L                  |
+//! | Select        | Space, Backspace        |                           |
+//! | D-pad         |                         | T F G H                   |
 //!
-//! | N64       | Keys                | RetroPad id |
-//! |-----------|---------------------|-------------|
-//! | Stick     | W A S D             | left analog |
-//! | Walk      | Left Shift (held)   | stick x 0.4 |
-//! | C buttons | arrows              | X, A, L, R  |
-//! | A         | K                   | B           |
-//! | B         | J                   | Y           |
-//! | Z         | Space               | L2          |
-//! | L         | Q                   | Select      |
-//! | R         | E                   | R2          |
-//! | Start     | Enter               | Start       |
-//! | D-pad     | T F G H             | D-pad       |
+//! `lol`: the right hand moves with the arrows, the left hand presses Q W E R as in League of
+//! Legends, with D and F next to them.
 //!
-//! Esc and Ctrl+C quit, Tab toggles fast forward. Right and Left Shift only work in terminals
-//! with the kitty keyboard protocol, since other terminals never report a bare modifier.
+//! | Button        | Handheld (GB, GBC, GBA) | N64                       |
+//! |---------------|-------------------------|---------------------------|
+//! | Move          | arrows                  | arrows (stick)            |
+//! | Walk          |                         | Left Shift (held)         |
+//! | A             | W                       | W                         |
+//! | B             | Q                       | Q                         |
+//! | L             | E                       | T                         |
+//! | R             | R                       | R                         |
+//! | Z             |                         | E                         |
+//! | C buttons     |                         | A S D F (left, down, up, right) |
+//! | Start         | F, Enter                | Space, Enter              |
+//! | Select        | D, Space                |                           |
+//! | D-pad         |                         | I J K L                   |
+//!
+//! N64 buttons go through ParaLLEl N64 with `parallel-n64-alt-map = enabled`, where every N64
+//! button is its own RetroPad id: A = B, B = Y, L = Select, R = R2, Z = L2, C-up = X,
+//! C-down = A, C-left = L, C-right = R.
+//!
+//! Esc and Ctrl+C quit, Tab toggles fast forward. Left Shift only works in terminals with the
+//! kitty keyboard protocol, since other terminals never report a bare modifier.
 
 use std::io::{self, IsTerminal, Write};
 use std::panic;
@@ -67,12 +77,29 @@ pub enum Layout {
     N64,
 }
 
-impl Layout {
-    fn bindings(self) -> &'static [(KeyCode, Action)] {
-        match self {
-            Layout::Handheld => &HANDHELD,
-            Layout::N64 => &N64,
+/// The key scheme, see the module docs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Keys {
+    Wasd,
+    Lol,
+}
+
+impl Keys {
+    /// Reads `TERMCART_KEYS`; anything but `lol` means `wasd`.
+    pub fn from_env() -> Keys {
+        match std::env::var("TERMCART_KEYS") {
+            Ok(v) if v.trim().eq_ignore_ascii_case("lol") => Keys::Lol,
+            _ => Keys::Wasd,
         }
+    }
+}
+
+fn bindings(layout: Layout, keys: Keys) -> &'static [(KeyCode, Action)] {
+    match (layout, keys) {
+        (Layout::Handheld, Keys::Wasd) => &HANDHELD_WASD,
+        (Layout::Handheld, Keys::Lol) => &HANDHELD_LOL,
+        (Layout::N64, Keys::Wasd) => &N64_WASD,
+        (Layout::N64, Keys::Lol) => &N64_LOL,
     }
 }
 
@@ -92,35 +119,44 @@ enum Direction {
     Right,
 }
 
-const HANDHELD: [(KeyCode, Action); 19] = [
-    (KeyCode::Up, Action::Button(Joypad::UP)),
+const HANDHELD_WASD: [(KeyCode, Action); 16] = [
     (KeyCode::Char('w'), Action::Button(Joypad::UP)),
-    (KeyCode::Down, Action::Button(Joypad::DOWN)),
-    (KeyCode::Char('s'), Action::Button(Joypad::DOWN)),
-    (KeyCode::Left, Action::Button(Joypad::LEFT)),
     (KeyCode::Char('a'), Action::Button(Joypad::LEFT)),
-    (KeyCode::Right, Action::Button(Joypad::RIGHT)),
+    (KeyCode::Char('s'), Action::Button(Joypad::DOWN)),
     (KeyCode::Char('d'), Action::Button(Joypad::RIGHT)),
-    (KeyCode::Char('x'), Action::Button(Joypad::A)),
+    (KeyCode::Up, Action::Button(Joypad::UP)),
+    (KeyCode::Left, Action::Button(Joypad::LEFT)),
+    (KeyCode::Down, Action::Button(Joypad::DOWN)),
+    (KeyCode::Right, Action::Button(Joypad::RIGHT)),
     (KeyCode::Char('k'), Action::Button(Joypad::A)),
-    (KeyCode::Char('z'), Action::Button(Joypad::B)),
     (KeyCode::Char('j'), Action::Button(Joypad::B)),
-    (KeyCode::Char('q'), Action::Button(Joypad::L)),
     (KeyCode::Char('u'), Action::Button(Joypad::L)),
-    (KeyCode::Char('e'), Action::Button(Joypad::R)),
     (KeyCode::Char('i'), Action::Button(Joypad::R)),
     (KeyCode::Enter, Action::Button(Joypad::START)),
+    (KeyCode::Char('l'), Action::Button(Joypad::START)),
+    (KeyCode::Char(' '), Action::Button(Joypad::SELECT)),
     (KeyCode::Backspace, Action::Button(Joypad::SELECT)),
-    (
-        KeyCode::Modifier(ModifierKeyCode::RightShift),
-        Action::Button(Joypad::SELECT),
-    ),
+];
+
+const HANDHELD_LOL: [(KeyCode, Action); 12] = [
+    (KeyCode::Up, Action::Button(Joypad::UP)),
+    (KeyCode::Left, Action::Button(Joypad::LEFT)),
+    (KeyCode::Down, Action::Button(Joypad::DOWN)),
+    (KeyCode::Right, Action::Button(Joypad::RIGHT)),
+    (KeyCode::Char('w'), Action::Button(Joypad::A)),
+    (KeyCode::Char('q'), Action::Button(Joypad::B)),
+    (KeyCode::Char('e'), Action::Button(Joypad::L)),
+    (KeyCode::Char('r'), Action::Button(Joypad::R)),
+    (KeyCode::Char('f'), Action::Button(Joypad::START)),
+    (KeyCode::Enter, Action::Button(Joypad::START)),
+    (KeyCode::Char('d'), Action::Button(Joypad::SELECT)),
+    (KeyCode::Char(' '), Action::Button(Joypad::SELECT)),
 ];
 
 // RetroPad ids from parallel-n64's alt-map branch of inputGetKeys_default,
 // mupen64plus-core/src/plugin/emulate_game_controller_via_libretro.c L885-L897 at 6f23339.
 // The stick is read in inputGetKeys_reuse, L514-L517 of the same file.
-const N64: [(KeyCode, Action); 19] = [
+const N64_WASD: [(KeyCode, Action); 20] = [
     (KeyCode::Char('w'), Action::Stick(Direction::Up)),
     (KeyCode::Char('a'), Action::Stick(Direction::Left)),
     (KeyCode::Char('s'), Action::Stick(Direction::Down)),
@@ -132,19 +168,48 @@ const N64: [(KeyCode, Action); 19] = [
     (KeyCode::Right, Action::Button(Joypad::R)),
     (KeyCode::Char('k'), Action::Button(Joypad::B)),
     (KeyCode::Char('j'), Action::Button(Joypad::Y)),
+    (KeyCode::Char('u'), Action::Button(Joypad::SELECT)),
+    (KeyCode::Char('i'), Action::Button(Joypad::R2)),
     (KeyCode::Char(' '), Action::Button(Joypad::L2)),
-    (KeyCode::Char('q'), Action::Button(Joypad::SELECT)),
-    (KeyCode::Char('e'), Action::Button(Joypad::R2)),
     (KeyCode::Enter, Action::Button(Joypad::START)),
+    (KeyCode::Char('l'), Action::Button(Joypad::START)),
     (KeyCode::Char('t'), Action::Button(Joypad::UP)),
     (KeyCode::Char('f'), Action::Button(Joypad::LEFT)),
     (KeyCode::Char('g'), Action::Button(Joypad::DOWN)),
     (KeyCode::Char('h'), Action::Button(Joypad::RIGHT)),
 ];
 
+const N64_LOL: [(KeyCode, Action); 20] = [
+    (KeyCode::Up, Action::Stick(Direction::Up)),
+    (KeyCode::Left, Action::Stick(Direction::Left)),
+    (KeyCode::Down, Action::Stick(Direction::Down)),
+    (KeyCode::Right, Action::Stick(Direction::Right)),
+    (KeyCode::Modifier(ModifierKeyCode::LeftShift), Action::Walk),
+    (KeyCode::Char('w'), Action::Button(Joypad::B)),
+    (KeyCode::Char('q'), Action::Button(Joypad::Y)),
+    (KeyCode::Char('e'), Action::Button(Joypad::L2)),
+    (KeyCode::Char('r'), Action::Button(Joypad::R2)),
+    (KeyCode::Char('t'), Action::Button(Joypad::SELECT)),
+    (KeyCode::Char('a'), Action::Button(Joypad::L)),
+    (KeyCode::Char('s'), Action::Button(Joypad::A)),
+    (KeyCode::Char('d'), Action::Button(Joypad::X)),
+    (KeyCode::Char('f'), Action::Button(Joypad::R)),
+    (KeyCode::Char(' '), Action::Button(Joypad::START)),
+    (KeyCode::Enter, Action::Button(Joypad::START)),
+    (KeyCode::Char('i'), Action::Button(Joypad::UP)),
+    (KeyCode::Char('j'), Action::Button(Joypad::LEFT)),
+    (KeyCode::Char('k'), Action::Button(Joypad::DOWN)),
+    (KeyCode::Char('l'), Action::Button(Joypad::RIGHT)),
+];
+
 /// Bits in `Input::held`, so the most bindings a layout may have.
 const SLOTS: usize = 32;
-const _: () = assert!(HANDHELD.len() <= SLOTS && N64.len() <= SLOTS);
+const _: () = assert!(
+    HANDHELD_WASD.len() <= SLOTS
+        && HANDHELD_LOL.len() <= SLOTS
+        && N64_WASD.len() <= SLOTS
+        && N64_LOL.len() <= SLOTS
+);
 
 /// Full deflection on one axis, in libretro's analog range.
 const STICK_MAX: f64 = 32767.0;
@@ -186,7 +251,7 @@ impl Input {
     ///
     /// Fails when stdin is not a terminal, when another `Input` is alive, or when writing the
     /// setup sequences fails. Whatever was already changed is restored first.
-    pub fn new(layout: Layout) -> Result<Input> {
+    pub fn new(layout: Layout, keys: Keys) -> Result<Input> {
         // crossterm falls back to /dev/tty, and a background process reading it gets errors
         // that its keyboard enhancement query retries forever.
         if !io::stdin().is_terminal() {
@@ -202,7 +267,7 @@ impl Input {
         }
         // From here on, dropping `input` restores the terminal.
         let mut input = Input {
-            bindings: layout.bindings(),
+            bindings: bindings(layout, keys),
             release: KeyRelease::Timed,
             held: 0,
             expires: [None; SLOTS],
@@ -393,7 +458,7 @@ fn install_panic_hook() {
 
 #[cfg(test)]
 mod tests {
-    use super::stick;
+    use super::{bindings, stick, Keys, Layout};
 
     fn check(x: i8, y: i8, walk: bool, expected: (i16, i16)) {
         assert_eq!(stick(x, y, walk), expected, "stick({x}, {y}, {walk})");
@@ -432,5 +497,20 @@ mod tests {
         check(1, 0, true, (13106, 0));
         check(0, -1, true, (0, -13106));
         check(-1, 1, true, (-9267, 9267));
+    }
+
+    #[test]
+    fn no_key_is_bound_twice() {
+        for layout in [Layout::Handheld, Layout::N64] {
+            for keys in [Keys::Wasd, Keys::Lol] {
+                let table = bindings(layout, keys);
+                for (i, (key, _)) in table.iter().enumerate() {
+                    assert!(
+                        table[i + 1..].iter().all(|(other, _)| other != key),
+                        "{key:?} bound twice in {layout:?} {keys:?}"
+                    );
+                }
+            }
+        }
     }
 }

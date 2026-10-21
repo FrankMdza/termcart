@@ -18,7 +18,7 @@ mod input;
 #[path = "../src/joypad.rs"]
 mod joypad;
 
-use input::{Command, Input, Layout};
+use input::{Command, Input, Keys, Layout};
 use joypad::Joypad;
 
 /// Button names by RetroPad id.
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
         Layout::N64 => &N64,
     };
     let started = Instant::now();
-    let mut input = Input::new(layout)?;
+    let mut input = Input::new(layout, Keys::from_env())?;
     let mut out = io::stdout();
     write!(
         out,
