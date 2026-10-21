@@ -1,0 +1,13 @@
+diff --git a/libretro/libretro.c b/libretro/libretro.c
+index bfdc02d..dbc4540 100644
+--- a/libretro/libretro.c
++++ b/libretro/libretro.c
+@@ -1,3 +1,8 @@
++/* macOS: the no-GL glsm.h path still pulls in CoreFoundation, whose MacTypes.h
++ * uses the names hi and lo that r4300.h defines as macros. Parse it first. */
++#ifdef __APPLE__
++#include <CoreFoundation/CoreFoundation.h>
++#endif
+ #include <stdio.h>
+ #include <mupen64plus-next_common.h>
+ 

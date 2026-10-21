@@ -1,0 +1,7 @@
+/target
+/.cores-src
+/cores
+/roms
+*.sav
+/.tmp
+*.srm
