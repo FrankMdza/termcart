@@ -13,16 +13,18 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context, Result};
 
 use audio::Audio;
-use input::{Command, Input, Layout};
+use input::{Command, Input, Keys, Layout};
 use libretro::Core;
 
 const USAGE: &str = "usage: termcart <rom> [--core <path>] [--video auto|kitty|half]
 
 Plays .gb, .gbc, .gba and .z64/.n64/.v64 files. Saves go next to the ROM as <name>.sav.
-Handheld keys: arrows/WASD d-pad, X/K = A, Z/J = B, Q/U = L, E/I = R,
-               Enter = Start, Backspace = Select.
-N64 keys: WASD stick (Left Shift walks), arrows = C buttons, K = A, J = B,
-          Space = Z, Q = L, E = R, Enter = Start, T/F/G/H = d-pad.
+Keys (TERMCART_KEYS=wasd, the default):
+  move W A S D or arrows, K = A, J = B, U = L, I = R, Enter or L = Start,
+  Space = Select; N64: arrows = C buttons, Space = Z, Left Shift walks, T F G H = d-pad.
+Keys (TERMCART_KEYS=lol):
+  move with arrows, W = A, Q = B, E = L, R = R, F = Start, D = Select;
+  N64: E = Z, T = L, A S D F = C left/down/up/right, Space = Start, I J K L = d-pad.
 Tab = fast forward, Esc = quit.";
 
 /// Frames run per drawn frame while fast forward is on.
@@ -155,7 +157,7 @@ fn main() -> Result<()> {
 
     // Input owns raw mode and the alternate screen, so it comes up before any drawing.
     let layout = layout_for(&core_path);
-    let mut input = Input::new(layout)?;
+    let mut input = Input::new(layout, Keys::from_env())?;
     let mut renderer = video::make(args.video);
     let (cols, rows) = crossterm::terminal::size()?;
     renderer.resize(cols, rows);

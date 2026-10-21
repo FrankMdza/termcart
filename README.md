@@ -21,33 +21,39 @@ For N64, also run `./scripts/build-n64.sh`. N64 costs far more CPU than the hand
 
 ## Keys
 
-| Key | Button |
-|---|---|
-| Arrows or WASD | D-pad |
-| X or K | A |
-| Z or J | B |
-| Q or U | L |
-| E or I | R |
-| Enter | Start |
-| Backspace or Right Shift | Select |
-| Tab | Fast forward, 4x |
-| Esc or Ctrl+C | Quit |
+Two schemes. Pick one with `TERMCART_KEYS=wasd` (the default) or `TERMCART_KEYS=lol`.
 
-N64 games use another layout:
+`wasd`: left hand moves, right hand presses buttons.
 
-| Key | Button |
-|---|---|
-| WASD | Analog stick, Left Shift held walks at 40% |
-| Arrows | C buttons |
-| K | A |
-| J | B |
-| Space | Z |
-| Q / E | L / R |
-| Enter | Start |
-| T F G H | D-pad up, left, down, right |
+| Button | GB, GBC, GBA | N64 |
+|---|---|---|
+| Move | W A S D or arrows | W A S D (stick), Left Shift held walks at 40% |
+| A / B | K / J | K / J |
+| L / R | U / I | U / I |
+| Z | | Space |
+| C buttons | | Arrows |
+| Start | Enter or L | Enter or L |
+| Select | Space or Backspace | |
+| D-pad | | T F G H |
+
+`lol`: arrows move, Q W E R as in League of Legends.
+
+| Button | GB, GBC, GBA | N64 |
+|---|---|---|
+| Move | Arrows | Arrows (stick), Left Shift held walks at 40% |
+| A / B | W / Q | W / Q |
+| L / R | E / R | T / R |
+| Z | | E |
+| C buttons | | A S D F (left, down, up, right) |
+| Start | F or Enter | Space or Enter |
+| Select | D or Space | |
+| D-pad | | I J K L |
+
+In both, Tab toggles 4x fast forward and Esc or Ctrl+C quits.
 
 Holding a key needs key release events, which Ghostty, kitty and WezTerm send through the kitty
-keyboard protocol. Elsewhere a key counts as held for 130 ms after its last press or repeat.
+keyboard protocol. Elsewhere a key counts as held for 130 ms after its last press or repeat, and
+Left Shift does nothing.
 
 ## Saves
 
