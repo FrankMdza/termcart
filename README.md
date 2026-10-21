@@ -68,3 +68,9 @@ changed, and again on exit.
   `TERMCART_OPT_parallel_n64_angrylion_multithread=8`.
 
 Bring your own ROMs, dumped from cartridges you own.
+
+## License
+
+termcart is MIT, see `LICENSE`. The cores it builds keep their own licenses: mGBA is MPL-2.0
+and ParaLLEl N64 is GPL-2.0, and so is the patch in `scripts/patches/`. termcart does not
+include or download any game.
