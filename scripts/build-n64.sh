@@ -15,6 +15,9 @@ if [ ! -d "$src/parallel-n64" ]; then
 fi
 git -C "$src/parallel-n64" checkout --quiet "$PN64_REF"
 
+# The core prints a debug line to stdout at load, which is termcart's screen.
+sed -i.bak '/printf("plugin_start_gfx\\n");/d' "$src/parallel-n64/mupen64plus-core/src/plugin/plugin.c"
+
 # Without GL, libretro.c still includes glsm.h, which pulls in CoreFoundation
 # after r4300.h has defined hi and lo as macros, and MacTypes.h stops compiling.
 patch="$root/scripts/patches/parallel-n64-macos-corefoundation.patch"

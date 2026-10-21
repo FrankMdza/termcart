@@ -29,6 +29,44 @@ Tab = fast forward, Esc = quit.";
 const FAST_FORWARD: u32 = 4;
 const SAVE_EVERY: Duration = Duration::from_secs(10);
 
+/// What the session cost, printed after the terminal is restored.
+#[derive(Default)]
+struct Stats {
+    frames: u64,
+    late: u64,
+    emulate: Duration,
+    emulate_max: Duration,
+    draw: Duration,
+}
+
+impl Stats {
+    fn print(&self, elapsed: Duration) {
+        if self.frames == 0 {
+            return;
+        }
+        let ms = |d: Duration| d.as_secs_f64() * 1000.0;
+        let n = self.frames as f64;
+        eprintln!(
+            "termcart: {} frames in {:.1} s ({:.1} fps), emulation {:.2} ms/frame (max {:.1}), \
+             draw {:.2} ms/frame, {} frames late ({:.1}%)",
+            self.frames,
+            elapsed.as_secs_f64(),
+            n / elapsed.as_secs_f64(),
+            ms(self.emulate) / n,
+            ms(self.emulate_max),
+            ms(self.draw) / n,
+            self.late,
+            self.late as f64 * 100.0 / n,
+        );
+        if let Ok(size) = crossterm::terminal::window_size() {
+            eprintln!(
+                "termcart: terminal {}x{} cells, {}x{} px",
+                size.columns, size.rows, size.width, size.height
+            );
+        }
+    }
+}
+
 struct Args {
     rom: PathBuf,
     core: Option<PathBuf>,
@@ -125,8 +163,11 @@ fn main() -> Result<()> {
     let stretch = matches!(layout, Layout::N64);
     renderer.set_aspect(stretch.then_some(av.aspect_ratio));
 
+    let started = Instant::now();
+    let mut stats = Stats::default();
     let result = run(
         &mut core,
+        &mut stats,
         &mut input,
         &mut *renderer,
         audio.as_mut(),
@@ -141,11 +182,14 @@ fn main() -> Result<()> {
     drop(out);
     let saved = core.write_save(&save_path);
     drop(input);
+    stats.print(started.elapsed());
     result.and(saved)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run(
     core: &mut Core,
+    stats: &mut Stats,
     input: &mut Input,
     renderer: &mut dyn video::Renderer,
     mut audio: Option<&mut Audio>,
@@ -183,9 +227,13 @@ fn run(
         let (x, y) = input.left_stick();
         core.set_analog_left(x, y);
         let runs = if fast_forward { FAST_FORWARD } else { 1 };
+        let emulate_start = Instant::now();
         for _ in 0..runs {
             core.run_frame();
         }
+        let emulated = emulate_start.elapsed();
+        stats.emulate += emulated;
+        stats.emulate_max = stats.emulate_max.max(emulated);
         // N64 cores change geometry after boot and audio rate per game.
         if let Some(av) = core.take_av_change() {
             renderer.set_aspect(stretch.then_some(av.aspect_ratio));
@@ -200,10 +248,13 @@ fn run(
         if let (Some(audio), false) = (audio.as_deref_mut(), fast_forward) {
             audio.push(&samples);
         }
+        let draw_start = Instant::now();
         if let Some(frame) = core.frame() {
             renderer.draw(&mut out, &frame)?;
             out.flush()?;
         }
+        stats.draw += draw_start.elapsed();
+        stats.frames += 1;
 
         if last_save.elapsed() >= SAVE_EVERY {
             core.write_save(save_path)?;
@@ -213,6 +264,9 @@ fn run(
         next_frame += frame_time;
         // After a stall (suspend, slow terminal), resync instead of racing to catch up.
         let now = Instant::now();
+        if now > next_frame {
+            stats.late += 1;
+        }
         if now > next_frame + frame_time * 4 {
             next_frame = now;
         }
