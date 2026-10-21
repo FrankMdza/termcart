@@ -25,7 +25,7 @@ Keys (TERMCART_KEYS=wasd, the default):
 Keys (TERMCART_KEYS=lol):
   move with arrows, W = A, Q = B, E = L, R = R, F = Start, D = Select;
   N64: E = Z, T = L, A S D F = C left/down/up/right, Space = Start, I J K L = d-pad.
-Tab = fast forward, Esc = quit.";
+F2 = switch between wasd and lol, Tab = fast forward, Esc = quit.";
 
 /// Frames run per drawn frame while fast forward is on.
 const FAST_FORWARD: u32 = 4;

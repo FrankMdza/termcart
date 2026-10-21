@@ -39,7 +39,7 @@
 //! button is its own RetroPad id: A = B, B = Y, L = Select, R = R2, Z = L2, C-up = X,
 //! C-down = A, C-left = L, C-right = R.
 //!
-//! Esc and Ctrl+C quit, Tab toggles fast forward. Left Shift only works in terminals with the
+//! Esc and Ctrl+C quit, Tab toggles fast forward, F2 switches between the two schemes. Left Shift only works in terminals with the
 //! kitty keyboard protocol, since other terminals never report a bare modifier.
 
 use std::io::{self, IsTerminal, Write};
@@ -233,6 +233,8 @@ static ACTIVE: AtomicBool = AtomicBool::new(false);
 static ENHANCED: AtomicBool = AtomicBool::new(false);
 
 pub struct Input {
+    layout: Layout,
+    keys: Keys,
     bindings: &'static [(KeyCode, Action)],
     release: KeyRelease,
     /// Bit `i` set while `bindings[i]` is down, when releases are reported.
@@ -267,6 +269,8 @@ impl Input {
         }
         // From here on, dropping `input` restores the terminal.
         let mut input = Input {
+            layout,
+            keys,
             bindings: bindings(layout, keys),
             release: KeyRelease::Timed,
             held: 0,
@@ -384,6 +388,10 @@ impl Input {
                     commands.push(Command::Quit);
                 }
                 KeyCode::Tab => commands.push(Command::FastForward),
+                KeyCode::F(2) => {
+                    self.switch_keys();
+                    return;
+                }
                 _ => {}
             }
         }
@@ -409,6 +417,20 @@ impl Input {
             (KeyRelease::Reported, _) => self.held |= 1 << slot,
             (KeyRelease::Timed, _) => self.expires[slot] = Some(Instant::now() + HOLD),
         }
+    }
+}
+
+impl Input {
+    /// Swaps between the `wasd` and `lol` schemes mid-game. Held keys are dropped, since
+    /// their slots mean other buttons in the new table.
+    fn switch_keys(&mut self) {
+        self.keys = match self.keys {
+            Keys::Wasd => Keys::Lol,
+            Keys::Lol => Keys::Wasd,
+        };
+        self.bindings = bindings(self.layout, self.keys);
+        self.held = 0;
+        self.expires = [None; SLOTS];
     }
 }
 

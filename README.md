@@ -49,7 +49,8 @@ Two schemes. Pick one with `TERMCART_KEYS=wasd` (the default) or `TERMCART_KEYS=
 | Select | D or Space | |
 | D-pad | | I J K L |
 
-In both, Tab toggles 4x fast forward and Esc or Ctrl+C quits.
+In both, F2 switches to the other scheme mid-game, Tab toggles 4x fast forward, and Esc or
+Ctrl+C quits.
 
 Holding a key needs key release events, which Ghostty, kitty and WezTerm send through the kitty
 keyboard protocol. Elsewhere a key counts as held for 130 ms after its last press or repeat, and
